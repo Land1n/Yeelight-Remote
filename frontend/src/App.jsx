@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useManagerState } from "./api.js";
+import { useNotices } from "./notify.js";
+import Toasts from "./components/Toasts.jsx";
 import Home from "./pages/Home.jsx";
 import Bulbs from "./pages/Bulbs.jsx";
 import Modes from "./pages/Modes.jsx";
@@ -16,8 +18,11 @@ const PAGES = [
 
 export default function App() {
   const [current, setCurrent] = useState("home");
-  const { state, error } = useManagerState();
+  const { state, error, updated } = useManagerState();
+  const { busy } = useNotices();
   const online = Boolean(state?.online);
+  const lamps = state?.lamps ?? [];
+  const live = lamps.filter((lamp) => lamp.online).length;
   const page = PAGES.find((item) => item.key === current) ?? PAGES[0];
   const Page = page.component;
 
@@ -27,6 +32,8 @@ export default function App() {
         <div className="backdrop-glow" />
         <div className="backdrop-grid" />
       </div>
+
+      {busy > 0 && <div className="topprogress" aria-label="Выполняется запрос" />}
 
       <header className="topbar">
         <div className="topbar-inner">
@@ -47,6 +54,7 @@ export default function App() {
                 key={item.key}
                 type="button"
                 className={item.key === current ? "active" : ""}
+                aria-current={item.key === current ? "page" : undefined}
                 onClick={() => setCurrent(item.key)}
               >
                 {item.title}
@@ -54,9 +62,22 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="connection" title={error ?? ""}>
-            <span className={`dot ${online ? "ok" : "error"}`} />
-            <span>{online ? "Агент online" : "Агент offline"}</span>
+          <div className="head-meta">
+            <span className="metric" title="Ламп в сети">
+              <b>{live}</b>/{lamps.length} онлайн
+            </span>
+            {busy > 0 && (
+              <span className="metric metric-busy">
+                <span className="spinner" /> ждём · {busy}
+              </span>
+            )}
+            <span className="metric metric-time" title={error ?? ""}>
+              обновлено {updated ? updated.toLocaleTimeString() : "—"}
+            </span>
+            <div className="connection" title={error ?? ""}>
+              <span className={`dot ${online ? "ok" : "error"}`} />
+              <span>{online ? "Агент online" : "Агент offline"}</span>
+            </div>
           </div>
         </div>
       </header>
@@ -70,6 +91,8 @@ export default function App() {
           <span>Yeelight Manager</span>
         </div>
       </footer>
+
+      <Toasts />
     </>
   );
 }

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { send } from "../api.js";
 
+// Метка времени для строк журнала консоли.
+const time = () => new Date().toLocaleTimeString();
+
 // Разбор строки консоли: "on <ip>", "off <ip>", "bright <ip> 50", "color <ip> #ff0000",
 // "temp <ip> 4000", "undo <ip>", "toggle <ip>".
 export function parseLine(line) {
@@ -28,6 +31,7 @@ export function parseLine(line) {
 export default function Console() {
   const [line, setLine] = useState("");
   const [log, setLog] = useState([]);
+  const [pending, setPending] = useState(false);
 
   const submit = (event) => {
     event.preventDefault();
@@ -37,14 +41,15 @@ export default function Console() {
     try {
       action = parseLine(text);
     } catch (err) {
-      setLog((prev) => [...prev, `${text} → ${err.message}`]);
+      setLog((prev) => [...prev, `${time()} ${text} → ${err.message}`]);
       return;
     }
     setLine("");
+    setPending(true);
     send(action).then(
-      (result) => setLog((prev) => [...prev, `${text} → ${result}`]),
-      (err) => setLog((prev) => [...prev, `${text} → ошибка: ${err.message}`]),
-    );
+      (result) => setLog((prev) => [...prev, `${time()} ${text} → ${result?.message ?? result}`]),
+      (err) => setLog((prev) => [...prev, `${time()} ${text} → ошибка: ${err.message}`]),
+    ).finally(() => setPending(false));
   };
 
   return (
@@ -64,10 +69,18 @@ export default function Console() {
             <input value={line} onChange={(e) => setLine(e.target.value)} placeholder="on 192.168.1.50" />
           </label>
           <div className="connection-actions">
-            <button className="btn btn-primary" type="submit">Выполнить</button>
+            <button className="btn btn-primary" type="submit" disabled={pending}>
+              {pending && <span className="spinner" />}
+              {pending ? "Выполняется…" : "Выполнить"}
+            </button>
+            <span className="notice">Ответы приходят в журнал ниже и в уведомления.</span>
           </div>
         </form>
-        <pre className="console-output console-output-compact">{log.join("\n")}</pre>
+        {log.length === 0 ? (
+          <div className="empty">Журнал пуст — выполните команду.</div>
+        ) : (
+          <pre className="console-output console-output-compact">{log.slice(-50).join("\n")}</pre>
+        )}
       </section>
     </>
   );

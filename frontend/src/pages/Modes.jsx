@@ -21,16 +21,20 @@ export default function Modes({ state }) {
   const [draft, setDraft] = useState(EMPTY_STEP);
   const [ip, setIp] = useState("");
   const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(null);
 
-  const run = (action) =>
-    send(action).then(
+  const run = (action) => {
+    setBusy(action.name ?? action.mode?.name ?? action.kind);
+    return send(action).then(
       () => setError(null),
       (err) => setError(err.message),
-    );
+    ).finally(() => setBusy(null));
+  };
 
   const save = () => {
     run({ kind: "mode_save", mode: { name, steps, delay_seconds: Number(delay) } });
   };
+  const running = modes.filter((mode) => mode.running).length;
 
   return (
     <>
@@ -137,15 +141,20 @@ export default function Modes({ state }) {
         ) : (
           <div className="mode-list">
             {modes.map((mode) => (
-              <div className="mode" key={mode.name}>
+              <div className={`mode ${mode.running ? "is-running" : ""}`} key={mode.name}>
                 <div className="mode-info">
-                  <strong>{mode.name}</strong>
+                  <strong>
+                    {mode.name}
+                    {mode.running && <span className="pulse" title="Выполняется" />}
+                  </strong>
                   <div className="mode-commands">{mode.steps.length} шаг(ов), пауза {mode.delay_seconds} с</div>
-                  {mode.last_error && <div className="field-hint">Ошибка: {mode.last_error}</div>}
+                  {mode.running && <div className="field-hint">Идёт на {mode.running_ip}</div>}
+                  {mode.last_error && <div className="field-hint danger">Ошибка: {mode.last_error}</div>}
                 </div>
                 <div className="actions">
                   {mode.running ? (
                     <button className="btn btn-ghost" type="button" onClick={() => run({ kind: "mode_stop", name: mode.name })}>
+                      {busy === mode.name && <span className="spinner" />}
                       Остановить
                     </button>
                   ) : (
@@ -155,6 +164,7 @@ export default function Modes({ state }) {
                       disabled={!ip}
                       onClick={() => run({ kind: "mode_start", name: mode.name, ip })}
                     >
+                      {busy === mode.name && <span className="spinner" />}
                       Запустить
                     </button>
                   )}
