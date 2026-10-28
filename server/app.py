@@ -33,6 +33,10 @@ def create_app(access_key: str, db_path: str) -> FastAPI:
         store.apply_results([r.model_dump() for r in request.results])
         return PollResponse(actions=store.take_pending())
 
+    @app.get("/healthz")
+    def healthz():
+        return {"status": "ok"}
+
     @app.get("/api/state")
     def get_state():
         state, updated = store.load_state()
